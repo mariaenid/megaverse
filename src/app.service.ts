@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { CrudService } from './crud.service';
 import { HttpService } from '@nestjs/axios';
-import { catchError, firstValueFrom, lastValueFrom } from 'rxjs';
+import { catchError, firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
-import { Direction, Color, Endpoint, IGoal, IRequest } from './interfaces';
+import { Direction, Color, Endpoint, IRequest } from './interfaces';
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const API_CALL = process.env?.api || 'https://challenge.crossmint.io/api';
 const CADIDATE_ID =
@@ -56,7 +60,7 @@ export class AppService {
           const colorFormatted = color.toLocaleLowerCase();
           c.push({
             column: i,
-            endpoint: Endpoint.COMETH,
+            endpoint: Endpoint.SOLOON,
             color: colorFormatted as Color,
           });
         }
@@ -73,7 +77,7 @@ export class AppService {
   }
 
   resolverService: {
-    [key in Endpoint]: (arg: any) => void;
+    [key in Endpoint]: (arg: any) => Promise<void>;
   } = {
       [Endpoint.COMETH]: async (arg) => await this.comethsService.setValue(arg),
       [Endpoint.POLYANET]: async (arg) => await this.polyanetsService.setValue(arg),
@@ -83,24 +87,19 @@ export class AppService {
   resolverServiceDelete: {
     [key in Endpoint]: (arg: any) => Promise<void>;
   } = {
-      [Endpoint.COMETH]: async (arg) => this.comethsService.deleteValue(arg),
-      [Endpoint.POLYANET]: async (arg) => this.polyanetsService.deleteValue(arg),
-      [Endpoint.SOLOON]: async (arg) => this.soloonsService.deleteValue(arg),
+      [Endpoint.COMETH]: async (arg) =>
+        await this.comethsService.deleteValue(arg),
+      [Endpoint.POLYANET]: async (arg) =>
+        await this.polyanetsService.deleteValue(arg),
+      [Endpoint.SOLOON]: async (arg) => await this.soloonsService.deleteValue(arg),
     };
 
   async run() {
     const goal = await this.getGoal();
     const elements = this.getSolarSystem(goal);
     for (const i in elements) {
-      console.log('Endpoint', i, elements[i].endpoint!, elements[i]);
-      setTimeout(
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        async () => {
-          await this.resolverServiceDelete[elements[i].endpoint!](elements[i]);
-
-        },
-        10000,
-      );
+      await this.resolverService[elements[i].endpoint!](elements[i]);
+      await delay(1000);
     }
   }
 
